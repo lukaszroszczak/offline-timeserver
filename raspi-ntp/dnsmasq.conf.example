@@ -1,0 +1,20 @@
+# Przykład konfiguracji dnsmasq do rozgłaszania serwera NTP w LAN
+
+# Interfejs LAN (dostosuj)
+interface=eth0
+bind-interfaces
+
+# Adresy na których słucha DNS
+listen-address=127.0.0.1,192.168.1.1
+
+# Podstawowy zakres DHCP (dostosuj)
+dhcp-range=192.168.1.50,192.168.1.200,12h
+
+# Rozgłaszaj NTP (DHCP option 42) wskazując SBC (dostosuj IP)
+dhcp-option=option:ntp-server,192.168.1.1
+
+# (Opcjonalnie) ustaw własną domenę i serwery upstream DNS
+# domain=lan
+# server=1.1.1.1
+# server=9.9.9.9
+

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run healthcheck periodically
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=5min
+Unit=timeserver-healthcheck.service
+
+[Install]
+WantedBy=timers.target

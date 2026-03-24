@@ -1,0 +1,11 @@
+[Unit]
+Description=Update chrony allow + nftables for end0 subnet
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/update-ntp-allow end0
+
+[Install]
+WantedBy=multi-user.target

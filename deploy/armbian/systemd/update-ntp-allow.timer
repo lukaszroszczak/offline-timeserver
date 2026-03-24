@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic refresh of NTP allow and firewall
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=10min
+Unit=update-ntp-allow.service
+
+[Install]
+WantedBy=timers.target

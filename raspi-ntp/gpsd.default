@@ -1,0 +1,12 @@
+# /etc/default/gpsd — konfiguracja usługi gpsd
+
+# Urządzenia GPS (USB/serial). Ustaw właściwy port, np. /dev/ttyACM0 lub /dev/ttyUSB0
+DEVICES="/dev/ttyACM0"
+
+# Wymuś start bez klientów (-n), aby natychmiast czytać z GPS
+GPSD_OPTIONS="-n"
+
+# Automatyczne uruchamianie przez udev/systemd
+START_DAEMON="true"
+USBAUTO="true"
+

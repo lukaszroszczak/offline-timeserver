@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+OK=0; WARN=1; FAIL=2
+status=$OK
+
+msg() { printf '%s\n' "$*"; }
+check_port() {
+  if ss -ltn | grep -qE 'LISTEN +0 +[0-9]+ +0\.0\.0\.0:8000'; then
+    msg "HTTP: OK (port 8000 listening)"
+  else
+    msg "HTTP: FAIL (port 8000 not listening)"; status=$FAIL
+  fi
+}
+check_gps() {
+  if [ ! -e /dev/ttyACM0 ]; then msg "GPS: FAIL (/dev/ttyACM0 missing)"; status=$FAIL; return; fi
+  out=$(timeout 5s gpspipe -w -n 10 2>/dev/null | grep -m1 '"class":"TPV"' || true)
+  if [ -z "$out" ]; then msg "GPS: WARN (no TPV yet)"; status=$WARN; return; fi
+  mode=$(echo "$out" | grep -o '"mode":[0-9]' | head -n1 | cut -d: -f2 || echo 0)
+  case "$mode" in
+    3) msg "GPS: OK (3D fix)" ;;
+    2) msg "GPS: WARN (2D fix)"; [ $status -lt $WARN ] && status=$WARN ;;
+    *) msg "GPS: WARN (no fix yet)"; [ $status -lt $WARN ] && status=$WARN ;;
+  esac
+}
+check_chrony() {
+  src=$(chronyc sources -v 2>/dev/null || true)
+  track=$(chronyc tracking 2>/dev/null || true)
+  echo "$src" | sed -n '1,40p'
+  echo "$track" | sed -n '1,40p'
+  if echo "$src" | grep -qE '^\*.*GPS|^\+.*GPS'; then
+    msg "Chrony: OK (GPS selected)"
+  elif echo "$src" | grep -q '^#\? GPS'; then
+    msg "Chrony: WARN (GPS present, not selected yet)"; [ $status -lt $WARN ] && status=$WARN
+  else
+    msg "Chrony: WARN (no GPS source in chrony yet)"; [ $status -lt $WARN ] && status=$WARN
+  fi
+}
+check_port
+check_gps
+check_chrony
+exit $status

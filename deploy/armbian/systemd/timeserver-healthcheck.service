@@ -1,0 +1,11 @@
+[Unit]
+Description=Offline Time Server healthcheck
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/timeserver-healthcheck
+
+[Install]
+WantedBy=multi-user.target
