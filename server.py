@@ -322,7 +322,7 @@ def get_gps_status() -> Dict[str, Any]:
 
     # Fallback to raw NMEA
     code, out, _ = _run("gpspipe -r -n 5", timeout=3)
-    if code == 0 and out and any(l.startswith("$GP") or l.startswith("$GN") for l in out.splitlines()):
+    if code == 0 and out and any(line.startswith("$GP") or line.startswith("$GN") for line in out.splitlines()):
         status["available"] = True
     return status
 
@@ -536,9 +536,9 @@ def change_admin_password(new_password: str) -> Tuple[bool, str]:
         pw_hash = _hash_password(new_password)
 
         # Remove old plaintext and hash lines, then add hash
-        config_lines = [l for l in config_lines
-                        if not l.strip().startswith('ADMIN_PASS=')
-                        and not l.strip().startswith('ADMIN_PASS_HASH=')]
+        config_lines = [line for line in config_lines
+                        if not line.strip().startswith('ADMIN_PASS=')
+                        and not line.strip().startswith('ADMIN_PASS_HASH=')]
         config_lines.append(f'ADMIN_PASS_HASH={pw_hash}\n')
 
         # Ensure other required vars exist

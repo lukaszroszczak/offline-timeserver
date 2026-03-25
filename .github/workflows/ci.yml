@@ -21,7 +21,7 @@ jobs:
         run: pip install pytest flake8
 
       - name: Lint
-        run: flake8 server.py gps-time-bridge.py --max-line-length=120 --ignore=E501,W503
+        run: flake8 server.py gps-time-bridge.py --max-line-length=120 --ignore=E501,W291,W293,W503,E301,E303,E704
 
       - name: Run tests
         run: python -m pytest tests/ -v

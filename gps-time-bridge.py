@@ -131,7 +131,7 @@ def main():
             continue
 
         try:
-            from datetime import datetime, timezone
+            from datetime import datetime
             gps_dt = datetime.fromisoformat(gps_time_str.replace('Z', '+00:00'))
             gps_ts = gps_dt.timestamp()
         except (ValueError, KeyError):
@@ -159,7 +159,6 @@ def main():
             samples += 1
             if samples % 60 == 1:
                 mode = msg.get('mode', '?')
-                sats = msg.get('sats', '?')
                 log.info("SHM updated: time=%s mode=%s (samples=%d)", gps_time_str, mode, samples)
         except Exception as e:
             log.error("SHM write failed: %s", e)
