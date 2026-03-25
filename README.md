@@ -1,7 +1,7 @@
 # timeserver
 
-[![CI](https://github.com/lukaszroszczak/offline_timeserver/actions/workflows/ci.yml/badge.svg)](https://github.com/lukaszroszczak/offline_timeserver/actions/workflows/ci.yml)
-[![Docker](https://github.com/lukaszroszczak/offline_timeserver/actions/workflows/docker.yml/badge.svg)](https://github.com/lukaszroszczak/offline_timeserver/actions/workflows/docker.yml)
+[![CI](https://github.com/lukaszroszczak/offline-timeserver/actions/workflows/ci.yml/badge.svg)](https://github.com/lukaszroszczak/offline-timeserver/actions/workflows/ci.yml)
+[![Docker](https://github.com/lukaszroszczak/offline-timeserver/actions/workflows/docker.yml/badge.svg)](https://github.com/lukaszroszczak/offline-timeserver/actions/workflows/docker.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Serwer NTP z GPS dla odłączonej sieci LAN — z panelem administracyjnym HTTP. Działa na Raspberry Pi, Armbian i w Dockerze.
