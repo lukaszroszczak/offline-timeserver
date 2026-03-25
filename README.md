@@ -1,11 +1,18 @@
 # timeserver
 
-Zestaw narzędzi do lokalnego serwowania czasu w odłączonej sieci:
+[![CI](https://github.com/lukaszroszczak/offline_timeserver/actions/workflows/ci.yml/badge.svg)](https://github.com/lukaszroszczak/offline_timeserver/actions/workflows/ci.yml)
+[![Docker](https://github.com/lukaszroszczak/offline_timeserver/actions/workflows/docker.yml/badge.svg)](https://github.com/lukaszroszczak/offline_timeserver/actions/workflows/docker.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- Prosty serwer HTTP (demo) zwracający czas jako JSON.
-- Konfiguracja SBC (np. Raspberry Pi) jako serwera NTP z GPS (+PPS) dla LAN.
+Serwer NTP z GPS dla odłączonej sieci LAN — z panelem administracyjnym HTTP. Działa na Raspberry Pi, Armbian i w Dockerze.
 
-Ważne: serwer czasu w sieci używa standardowo protokołu NTP na porcie UDP/123 (nie 53 — to port DNS). Jeśli chcesz, możemy dodać DNS/DHCP (dnsmasq) na 53, aby rozgłaszać adres serwera NTP klientom (DHCP option 42).
+- Panel admin HTTP (status GPS/NTP/sieci, konfiguracja Wi-Fi)
+- Serwer NTP (`chrony`) z GPS (+PPS) jako źródłem czasu
+- Brak połączenia z internetem — offline-first
+
+**Spis treści:** [Docker](#3-docker) · [Panel HTTP](#1-python-http-demo--panel-admin) · [Raspberry Pi](#2-raspberry-pi-jako-serwer-ntp-z-gps) · [Architektura](#architektura)
+
+> Serwer czasu używa protokołu NTP na porcie UDP/123 (nie 53 — to DNS). Opcjonalnie: `dnsmasq` do rozgłaszania serwera NTP przez DHCP (Option 42).
 
 ## 1) Python HTTP demo + panel admin
 
@@ -26,6 +33,41 @@ Ważne: serwer czasu w sieci używa standardowo protokołu NTP na porcie UDP/123
   - Przykład: `ADMIN_USER=admin ADMIN_PASS='supersecret' SECRET_KEY='…' python3 server.py`
 
 Uwaga: port 80 wymaga uprawnień roota. Dewelopersko możesz użyć: `python3 server.py --host 0.0.0.0 --port 8000`.
+
+## 3) Docker
+
+Najszybszy sposób uruchomienia na dowolnym Linuksie z Docker Engine.
+
+> **Uwaga:** `network_mode: host` jest wymagane — chrony serwuje NTP na UDP/123, NAT blokuje ten protokół. Nie działa na macOS/Windows Docker Desktop.
+
+**Szybki start:**
+```bash
+# Pobierz gotowy obraz z GHCR:
+docker pull ghcr.io/lukaszroszczak/offline_timeserver:latest
+
+# Lub zbuduj lokalnie:
+docker build -t offline-timeserver .
+
+# Uruchom (GPS na /dev/ttyACM0):
+GPS_DEVICE=/dev/ttyACM0 docker compose up -d
+
+# Sprawdź status:
+docker compose logs -f
+curl http://localhost/time
+```
+
+**Zmienne środowiskowe:**
+
+| Zmienna | Domyślna | Opis |
+|---|---|---|
+| `GPS_DEVICE` | `/dev/ttyACM0` | Port szeregowy GPS |
+| `PORT` | `80` | Port panelu HTTP |
+| `ADMIN_USER` | `admin` | Login panelu |
+| `ADMIN_PASS` | `admin` | Hasło panelu (**zmień w produkcji!**) |
+| `SECRET_KEY` | losowy | Klucz podpisu ciasteczek sesji |
+| `LOG_LEVEL` | `INFO` | Poziom logowania (`DEBUG`/`INFO`/`WARNING`) |
+
+---
 
 ## 2) Raspberry Pi jako serwer NTP z GPS
 
@@ -84,3 +126,29 @@ gpspipe -r | head
 ```
 
 Uwaga: na Debian Bookworm plik overlay to `/boot/firmware/config.txt`, na starszych `/boot/config.txt`.
+
+## Architektura
+
+```
+GPS USB (/dev/ttyACM0)
+    │
+    ▼
+gpsd (daemon)
+    │  JSON stream (gniazdo Unix)
+    ▼
+gps-time-bridge.py ──► chrony SHM (pamięć współdzielona)
+                              │
+                              ▼
+                        chrony (serwer NTP)
+                         UDP/123 → klienci LAN
+                              │
+                        server.py (panel HTTP)
+                         TCP/80 → przeglądarka
+```
+
+| Komponent | Rola |
+|---|---|
+| `gpsd` | Parsuje NMEA z GPS, udostępnia przez gniazdo Unix |
+| `gps-time-bridge.py` | Odczytuje czas z gpsd, zapisuje do SHM chrony |
+| `chrony` | Serwer NTP pobierający czas z SHM; serwuje klientom UDP/123 |
+| `server.py` | Panel admin HTTP: status GPS/NTP/sieci, konfiguracja Wi-Fi (nmcli) |
