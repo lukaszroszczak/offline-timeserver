@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# Dokumentacja (nie potrzebna w obrazie)
+*.md
+AGENTS.md
+README.md
+
+# Skrypty deploy i konfiguracje bare-metal (nie używane w Docker)
+deploy/
+raspi-ntp/
+start_server.sh
+healthcheck.sh
+
+# Testy
+tests/
+
+# Web panel docs
+web_panel/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logi
+*.log
+server.log
+
+# Środowisko
+.env
+.env.*
+
+# IDE / edytory
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Docker build context — docker/ jest kopiowane przez Dockerfile jawnie
+# (nie wykluczamy, bo Dockerfile go potrzebuje)
