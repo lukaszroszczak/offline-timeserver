@@ -746,8 +746,30 @@ def configure_ethernet(method: str, ip: str = "", mask: str = "", gateway: str =
     return True, f"Ethernet configured successfully ({method})"
 
 
+def _parse_last_sync(last_str: str) -> int:
+    """Parse 'Last' field from chronyc clients (e.g. '354', '3m', '2h') to seconds."""
+    if not last_str or last_str == "-":
+        return None
+
+    last_str = last_str.strip()
+    if not last_str or last_str == "-":
+        return None
+
+    try:
+        if last_str.endswith("d"):
+            return int(last_str[:-1]) * 86400
+        elif last_str.endswith("h"):
+            return int(last_str[:-1]) * 3600
+        elif last_str.endswith("m"):
+            return int(last_str[:-1]) * 60
+        else:
+            return int(last_str)  # assume seconds
+    except:
+        return None
+
+
 def get_ntp_clients() -> List[Dict[str, Any]]:
-    """Return list of NTP clients from chronyc clients with status, stratum, and poll."""
+    """Return list of NTP clients from chronyc clients (excluding localhost)."""
     code, out, _ = _run("sudo -n chronyc clients", timeout=5)
     if code != 0 or not out:
         return []
@@ -757,33 +779,31 @@ def get_ntp_clients() -> List[Dict[str, Any]]:
         if not line or line.startswith("=") or line.startswith("Hostname"):
             continue
         parts = line.split()
-        if len(parts) < 3:  # Need at least IP, Stratum, Poll
+        if len(parts) < 6:  # Need at least IP, NTP, Drop, Int, IntL, Last
             continue
 
-        # First token may start with status indicator (+, -, ?, space)
-        # Extract IP by removing status character if present
-        first_token = parts[0]
-        if first_token and first_token[0] in "+-? ":
-            ip = first_token[1:]
-            status = first_token[0]
-        else:
-            ip = first_token
-            status = " "
+        # Parse IP (first column)
+        ip = parts[0].strip()
 
-        # Validate that extracted IP looks reasonable
+        # Skip localhost
+        if ip.lower() in ("localhost", "127.0.0.1", "::1"):
+            continue
+
+        # Validate IP looks reasonable
         if not ip or ip.startswith("="):
             continue
 
-        # Parse chronyc columns: IP Stratum Poll Reach LastRx LastSample
-        # parts[0] = IP with status, parts[1] = Stratum, parts[2] = Poll
-        stratum = parts[1] if len(parts) > 1 else "?"
-        poll = parts[2] if len(parts) > 2 else "?"
+        # Parse chronyc columns: Hostname NTP Drop Int IntL Last Cmd Drop Int Last
+        # parts[0] = IP, parts[1] = NTP count, parts[5] = Last (NTP)
+        ntp_count = parts[1] if len(parts) > 1 else "0"
+        last_sync_str = parts[5] if len(parts) > 5 else "-"
+        last_sync_seconds = _parse_last_sync(last_sync_str)
 
         clients.append({
             "ip": ip,
-            "status": status,
-            "stratum": stratum,
-            "poll": poll
+            "ntp_count": ntp_count,
+            "last_sync": last_sync_str,
+            "last_sync_seconds": last_sync_seconds
         })
     return clients
 
@@ -1821,13 +1841,15 @@ class TimeHandler(BaseHTTPRequestHandler):
                                     container.innerHTML = '<div class="status-item status-warning">Brak aktywnych klientów NTP</div>';
                                     return;
                                 }
-                                const statusText = {'+': 'W użyciu', '-': 'Offline', '?': 'Niski dostęp', ' ': 'Inny'};
                                 let html = '<table style="width:100%;border-collapse:collapse;font-size:14px">';
-                                html += '<tr style="background:#ecf0f1"><th style="padding:8px;text-align:left">Adres IP</th><th style="padding:8px;text-align:left">Status</th><th style="padding:8px;text-align:center">Stratum</th><th style="padding:8px;text-align:center">Poll (s)</th></tr>';
+                                html += '<tr style="background:#ecf0f1"><th style="padding:8px;text-align:left">Adres IP</th><th style="padding:8px;text-align:center">Liczba pakietów NTP</th><th style="padding:8px;text-align:left">Ostatnia synchronizacja</th></tr>';
                                 clients.forEach((c, i) => {
-                                    const st = c.status || '?';
-                                    const stText = statusText[st] || 'Nieznany';
-                                    html += `<tr style="background:${i%2?'#fff':'#f8f9fa'}"><td style="padding:8px">${c.ip}</td><td style="padding:8px">${stText} <code>${st}</code></td><td style="padding:8px;text-align:center">${c.stratum}</td><td style="padding:8px;text-align:center">${c.poll}</td></tr>`;
+                                    // Highlight in red if last sync < 24h (86400 seconds) ago
+                                    const lastSyncSec = c.last_sync_seconds;
+                                    const isRecent = lastSyncSec !== null && lastSyncSec < 86400;
+                                    const rowColor = isRecent ? '#ffcccc' : (i%2?'#fff':'#f8f9fa');
+                                    const textColor = isRecent ? '#cc0000' : '#000';
+                                    html += `<tr style="background:${rowColor}"><td style="padding:8px;color:${textColor}">${c.ip}</td><td style="padding:8px;text-align:center;color:${textColor}">${c.ntp_count}</td><td style="padding:8px;color:${textColor}">${c.last_sync || '-'}</td></tr>`;
                                 });
                                 html += '</table>';
                                 container.innerHTML = html;
