@@ -747,7 +747,7 @@ def configure_ethernet(method: str, ip: str = "", mask: str = "", gateway: str =
 
 
 def get_ntp_clients() -> List[Dict[str, Any]]:
-    """Return list of NTP clients from chronyc clients."""
+    """Return list of NTP clients from chronyc clients with status, stratum, and poll."""
     code, out, _ = _run("chronyc clients", timeout=5)
     if code != 0 or not out:
         return []
@@ -757,8 +757,34 @@ def get_ntp_clients() -> List[Dict[str, Any]]:
         if not line or line.startswith("=") or line.startswith("Hostname"):
             continue
         parts = line.split()
-        if len(parts) >= 2 and not parts[0].startswith("-"):
-            clients.append({"ip": parts[0], "ntp_requests": parts[1] if len(parts) > 1 else "?"})
+        if len(parts) < 3:  # Need at least IP, Stratum, Poll
+            continue
+
+        # First token may start with status indicator (+, -, ?, space)
+        # Extract IP by removing status character if present
+        first_token = parts[0]
+        if first_token and first_token[0] in "+-? ":
+            ip = first_token[1:]
+            status = first_token[0]
+        else:
+            ip = first_token
+            status = " "
+
+        # Validate that extracted IP looks reasonable
+        if not ip or ip.startswith("="):
+            continue
+
+        # Parse chronyc columns: IP Stratum Poll Reach LastRx LastSample
+        # parts[0] = IP with status, parts[1] = Stratum, parts[2] = Poll
+        stratum = parts[1] if len(parts) > 1 else "?"
+        poll = parts[2] if len(parts) > 2 else "?"
+
+        clients.append({
+            "ip": ip,
+            "status": status,
+            "stratum": stratum,
+            "poll": poll
+        })
     return clients
 
 
@@ -1795,15 +1821,18 @@ class TimeHandler(BaseHTTPRequestHandler):
                                     container.innerHTML = '<div class="status-item status-warning">Brak aktywnych klientów NTP</div>';
                                     return;
                                 }
+                                const statusText = {'+': 'W użyciu', '-': 'Offline', '?': 'Niski dostęp', ' ': 'Inny'};
                                 let html = '<table style="width:100%;border-collapse:collapse;font-size:14px">';
-                                html += '<tr style="background:#ecf0f1"><th style="padding:8px;text-align:left">Adres IP</th><th style="padding:8px;text-align:right">Zapytania NTP</th></tr>';
+                                html += '<tr style="background:#ecf0f1"><th style="padding:8px;text-align:left">Adres IP</th><th style="padding:8px;text-align:left">Status</th><th style="padding:8px;text-align:center">Stratum</th><th style="padding:8px;text-align:center">Poll (s)</th></tr>';
                                 clients.forEach((c, i) => {
-                                    html += `<tr style="background:${i%2?'#fff':'#f8f9fa'}"><td style="padding:8px">${c.ip}</td><td style="padding:8px;text-align:right">${c.ntp_requests}</td></tr>`;
+                                    const st = c.status || '?';
+                                    const stText = statusText[st] || 'Nieznany';
+                                    html += `<tr style="background:${i%2?'#fff':'#f8f9fa'}"><td style="padding:8px">${c.ip}</td><td style="padding:8px">${stText} <code>${st}</code></td><td style="padding:8px;text-align:center">${c.stratum}</td><td style="padding:8px;text-align:center">${c.poll}</td></tr>`;
                                 });
                                 html += '</table>';
                                 container.innerHTML = html;
                             } catch(e) {
-                                container.innerHTML = '<div class="status-item status-error">Błąd ładowania klientów</div>';
+                                container.innerHTML = '<div class="status-item status-error">Błąd ładowania klientów: ' + e.message + '</div>';
                             }
                         }
 

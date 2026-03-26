@@ -2,10 +2,12 @@ import base64
 import json
 import os
 import socket
+import subprocess
 import threading
 import time
 from datetime import datetime, timezone, timedelta
 from http.client import HTTPConnection
+from unittest.mock import patch
 
 import server as srv
 
@@ -324,3 +326,55 @@ def test_http_unknown_path_returns_404():
         assert resp.status == 404
     finally:
         _stop_server(httpd, old_env)
+
+
+def test_get_ntp_clients_parsing():
+    """Test parsing of chronyc clients output with status indicators."""
+    mock_output = """Hostname                      Stratum Poll Reach LastRx Last sample
+===============================================================================
++192.168.1.100                    1  64   377   32  +234us[+234us] +/- 125ms
+-192.168.1.101                    1  64   377   12  -123us[-123us] +/- 145ms
+?192.168.1.102                    2  64     0    -     +0ns[   +0ns] +/-   0ms
+ 192.168.1.103                    3  32   123   45  -456us[-456us] +/- 200ms
+"""
+    with patch('server._run', return_value=(0, mock_output, '')):
+        clients = srv.get_ntp_clients()
+
+        assert len(clients) == 4
+
+        assert clients[0]['ip'] == '192.168.1.100'
+        assert clients[0]['status'] == '+'
+        assert clients[0]['stratum'] == '1'
+        assert clients[0]['poll'] == '64'
+
+        assert clients[1]['ip'] == '192.168.1.101'
+        assert clients[1]['status'] == '-'
+        assert clients[1]['stratum'] == '1'
+        assert clients[1]['poll'] == '64'
+
+        assert clients[2]['ip'] == '192.168.1.102'
+        assert clients[2]['status'] == '?'
+        assert clients[2]['stratum'] == '2'
+        assert clients[2]['poll'] == '64'
+
+        assert clients[3]['ip'] == '192.168.1.103'
+        assert clients[3]['status'] == ' '
+        assert clients[3]['stratum'] == '3'
+        assert clients[3]['poll'] == '32'
+
+
+def test_get_ntp_clients_empty():
+    """Test empty chronyc output."""
+    mock_output = """Hostname                      Stratum Poll Reach LastRx Last sample
+===============================================================================
+"""
+    with patch('server._run', return_value=(0, mock_output, '')):
+        clients = srv.get_ntp_clients()
+        assert clients == []
+
+
+def test_get_ntp_clients_error():
+    """Test error handling when chronyc fails."""
+    with patch('server._run', return_value=(1, '', 'command not found')):
+        clients = srv.get_ntp_clients()
+        assert clients == []
