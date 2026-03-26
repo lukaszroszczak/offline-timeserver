@@ -748,7 +748,7 @@ def configure_ethernet(method: str, ip: str = "", mask: str = "", gateway: str =
 
 def get_ntp_clients() -> List[Dict[str, Any]]:
     """Return list of NTP clients from chronyc clients with status, stratum, and poll."""
-    code, out, _ = _run("chronyc clients", timeout=5)
+    code, out, _ = _run("sudo -n chronyc clients", timeout=5)
     if code != 0 or not out:
         return []
     clients = []
