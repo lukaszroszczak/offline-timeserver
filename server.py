@@ -746,7 +746,7 @@ def configure_ethernet(method: str, ip: str = "", mask: str = "", gateway: str =
     return True, f"Ethernet configured successfully ({method})"
 
 
-def _parse_last_sync(last_str: str) -> int:
+def _parse_last_sync(last_str: str) -> Optional[int]:
     """Parse 'Last' field from chronyc clients (e.g. '354', '3m', '2h') to seconds."""
     if not last_str or last_str == "-":
         return None
@@ -764,7 +764,7 @@ def _parse_last_sync(last_str: str) -> int:
             return int(last_str[:-1]) * 60
         else:
             return int(last_str)  # assume seconds
-    except:
+    except (ValueError, IndexError):
         return None
 
 

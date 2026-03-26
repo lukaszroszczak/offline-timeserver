@@ -329,43 +329,39 @@ def test_http_unknown_path_returns_404():
 
 
 def test_get_ntp_clients_parsing():
-    """Test parsing of chronyc clients output with status indicators."""
-    mock_output = """Hostname                      Stratum Poll Reach LastRx Last sample
+    """Test parsing of chronyc clients output (NTP Drop Int IntL Last format)."""
+    mock_output = """Hostname                      NTP   Drop Int IntL Last     Cmd   Drop Int  Last
 ===============================================================================
-+192.168.1.100                    1  64   377   32  +234us[+234us] +/- 125ms
--192.168.1.101                    1  64   377   12  -123us[-123us] +/- 145ms
-?192.168.1.102                    2  64     0    -     +0ns[   +0ns] +/-   0ms
- 192.168.1.103                    3  32   123   45  -456us[-456us] +/- 200ms
+192.168.1.100                    5      0   5   -   127       0      0   -     -
+192.168.1.101                    2      0  -5   -   354       0      0   -     -
+192.168.1.102                    0      1   3   -     -       0      0   -     -
+localhost                        0      0   -   -     -      93      0   3     6
 """
     with patch('server._run', return_value=(0, mock_output, '')):
         clients = srv.get_ntp_clients()
 
-        assert len(clients) == 4
+        # localhost should be filtered out
+        assert len(clients) == 3
 
         assert clients[0]['ip'] == '192.168.1.100'
-        assert clients[0]['status'] == '+'
-        assert clients[0]['stratum'] == '1'
-        assert clients[0]['poll'] == '64'
+        assert clients[0]['ntp_count'] == '5'
+        assert clients[0]['last_sync'] == '127'
+        assert clients[0]['last_sync_seconds'] == 127
 
         assert clients[1]['ip'] == '192.168.1.101'
-        assert clients[1]['status'] == '-'
-        assert clients[1]['stratum'] == '1'
-        assert clients[1]['poll'] == '64'
+        assert clients[1]['ntp_count'] == '2'
+        assert clients[1]['last_sync'] == '354'
+        assert clients[1]['last_sync_seconds'] == 354
 
         assert clients[2]['ip'] == '192.168.1.102'
-        assert clients[2]['status'] == '?'
-        assert clients[2]['stratum'] == '2'
-        assert clients[2]['poll'] == '64'
-
-        assert clients[3]['ip'] == '192.168.1.103'
-        assert clients[3]['status'] == ' '
-        assert clients[3]['stratum'] == '3'
-        assert clients[3]['poll'] == '32'
+        assert clients[2]['ntp_count'] == '0'
+        assert clients[2]['last_sync'] == '-'
+        assert clients[2]['last_sync_seconds'] is None
 
 
 def test_get_ntp_clients_empty():
     """Test empty chronyc output."""
-    mock_output = """Hostname                      Stratum Poll Reach LastRx Last sample
+    mock_output = """Hostname                      NTP   Drop Int IntL Last     Cmd   Drop Int  Last
 ===============================================================================
 """
     with patch('server._run', return_value=(0, mock_output, '')):
