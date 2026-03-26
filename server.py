@@ -1831,6 +1831,20 @@ class TimeHandler(BaseHTTPRequestHandler):
                             }
                         }
                         
+                        function formatSeconds(seconds) {
+                            if (seconds === null || seconds === undefined) return '-';
+                            const d = Math.floor(seconds / 86400);
+                            const h = Math.floor((seconds % 86400) / 3600);
+                            const m = Math.floor((seconds % 3600) / 60);
+                            const s = seconds % 60;
+                            const parts = [];
+                            if (d > 0) parts.push(d + 'd');
+                            if (h > 0) parts.push(h + 'h');
+                            if (m > 0) parts.push(m + 'm');
+                            if (s > 0 || parts.length === 0) parts.push(s + 's');
+                            return parts.join(' ');
+                        }
+
                         async function loadNtpClients() {
                             const container = document.getElementById('ntp-clients-list');
                             container.innerHTML = 'Ładowanie...';
@@ -1844,12 +1858,13 @@ class TimeHandler(BaseHTTPRequestHandler):
                                 let html = '<table style="width:100%;border-collapse:collapse;font-size:14px">';
                                 html += '<tr style="background:#ecf0f1"><th style="padding:8px;text-align:left">Adres IP</th><th style="padding:8px;text-align:center">Liczba pakietów NTP</th><th style="padding:8px;text-align:left">Ostatnia synchronizacja</th></tr>';
                                 clients.forEach((c, i) => {
-                                    // Highlight in red if last sync < 24h (86400 seconds) ago
+                                    // Highlight in red if last sync > 24h (86400 seconds) ago - host may be dead
                                     const lastSyncSec = c.last_sync_seconds;
-                                    const isRecent = lastSyncSec !== null && lastSyncSec < 86400;
-                                    const rowColor = isRecent ? '#ffcccc' : (i%2?'#fff':'#f8f9fa');
-                                    const textColor = isRecent ? '#cc0000' : '#000';
-                                    html += `<tr style="background:${rowColor}"><td style="padding:8px;color:${textColor}">${c.ip}</td><td style="padding:8px;text-align:center;color:${textColor}">${c.ntp_count}</td><td style="padding:8px;color:${textColor}">${c.last_sync || '-'}</td></tr>`;
+                                    const isDead = lastSyncSec !== null && lastSyncSec > 86400;
+                                    const rowColor = isDead ? '#ffcccc' : (i%2?'#fff':'#f8f9fa');
+                                    const textColor = isDead ? '#cc0000' : '#000';
+                                    const formattedTime = formatSeconds(lastSyncSec);
+                                    html += `<tr style="background:${rowColor}"><td style="padding:8px;color:${textColor}">${c.ip}</td><td style="padding:8px;text-align:center;color:${textColor}">${c.ntp_count}</td><td style="padding:8px;color:${textColor}">${formattedTime}</td></tr>`;
                                 });
                                 html += '</table>';
                                 container.innerHTML = html;
